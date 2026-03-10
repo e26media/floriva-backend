@@ -1,7 +1,9 @@
 const mongoose =require('mongoose');
-const mongoUrl='mongodb://127.0.0.1:27017/flower';
+
+require("dotenv").config();
 
 
+const mongoUrl=process.env.MONGO_URL;
 const   connectMongoDb =async()=>{
     try{
         await mongoose.connect(mongoUrl);
@@ -9,7 +11,7 @@ const   connectMongoDb =async()=>{
 
     }
     catch(err){
-        console.log("Not Connect Data base",err);
+        console.log("Database connection error",err);
     }
 }
 module.exports=connectMongoDb;
