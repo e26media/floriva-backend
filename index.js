@@ -3,7 +3,7 @@ const app=express();
 const dotenv = require('dotenv');
 const cors = require("cors");
 
-const mongoDB=require('./config/db')
+const mongoDB=require('./Config/db');
 const productRoutes=require('./Router/productRoutes');
 const categoryRoutes=require('./Router/categoryRoutes');
 const orderRouter=require('./Router/orderRoutes');
