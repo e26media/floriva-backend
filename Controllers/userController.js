@@ -5,22 +5,12 @@ const jwt = require("jsonwebtoken");
 const sendOTP = require("../Config/sendEmail");
 const { OAuth2Client } = require("google-auth-library");
 
-// ✅ Automatically switches between local and production
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
-
-const REDIRECT_URI = IS_PRODUCTION
-  ? "https://api.florivagifts.com/api/google/callback"
-  : "http://localhost:7000/api/google/callback";
-
-const FRONTEND_URL = IS_PRODUCTION
-  ? "https://www.florivagifts.com"
-  : "http://localhost:3000";
-
+// ✅ All URLs come from .env — read at REQUEST time inside getClient()
 const getClient = () =>
   new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    REDIRECT_URI
+    process.env.GOOGLE_CALLBACK_URL  // ✅ read at request time, not module load time
   );
 
 const generateToken = (user) => {
@@ -84,7 +74,7 @@ exports.verifyOtp = async (req, res) => {
 // =============================
 exports.googleLogin = async (req, res) => {
   try {
-    const client = getClient();
+    const client = getClient(); // ✅ reads .env at request time
 
     const authUrl = client.generateAuthUrl({
       access_type: "offline",
@@ -103,8 +93,10 @@ exports.googleLogin = async (req, res) => {
 // GOOGLE CALLBACK — Step 2
 // =============================
 exports.googleCallback = async (req, res) => {
+  const FRONTEND_URL = process.env.FRONTEND_URL; // ✅ read at request time
+
   try {
-    const client = getClient();
+    const client = getClient(); // ✅ reads .env at request time
     const { code } = req.query;
 
     if (!code) {
