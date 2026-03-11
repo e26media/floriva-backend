@@ -5,13 +5,15 @@ const jwt = require("jsonwebtoken");
 const sendOTP = require("../Config/sendEmail");
 const { OAuth2Client } = require("google-auth-library");
 
-// ✅ All URLs come from .env — read at REQUEST time inside getClient()
-const getClient = () =>
-  new OAuth2Client(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_CALLBACK_URL  // ✅ read at request time, not module load time
-  );
+const REDIRECT_URI = process.env.GOOGLE_CALLBACK_URL || "http://localhost:7000/api/google/callback";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+
+// ✅ getClient() is called at REQUEST time, not at module load time
+// This ensures process.env variables are already loaded by dotenv
+const getClient = () => new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET
+);
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -71,15 +73,19 @@ exports.verifyOtp = async (req, res) => {
 
 // =============================
 // GOOGLE LOGIN — Step 1
+// User clicks "Login with Google" → comes here → redirected to Google
 // =============================
 exports.googleLogin = async (req, res) => {
   try {
-    const client = getClient(); // ✅ reads .env at request time
+    const client = getClient(); // ✅ fresh client, env vars loaded by now
+
+    console.log("🔑 CLIENT_ID at request time:", process.env.GOOGLE_CLIENT_ID);
 
     const authUrl = client.generateAuthUrl({
       access_type: "offline",
       scope: ["profile", "email"],
       prompt: "select_account",
+      redirect_uri: REDIRECT_URI,
     });
 
     res.redirect(authUrl);
@@ -91,12 +97,11 @@ exports.googleLogin = async (req, res) => {
 
 // =============================
 // GOOGLE CALLBACK — Step 2
+// Google redirects here after user picks account
 // =============================
 exports.googleCallback = async (req, res) => {
-  const FRONTEND_URL = process.env.FRONTEND_URL; // ✅ read at request time
-
   try {
-    const client = getClient(); // ✅ reads .env at request time
+    const client = getClient(); // ✅ fresh client
     const { code } = req.query;
 
     if (!code) {
@@ -105,9 +110,15 @@ exports.googleCallback = async (req, res) => {
       );
     }
 
-    const { tokens } = await client.getToken(code);
+    // Exchange code → tokens
+    const { tokens } = await client.getToken({
+      code,
+      redirect_uri: REDIRECT_URI,
+    });
+
     client.setCredentials(tokens);
 
+    // Get user info from ID token
     const ticket = await client.verifyIdToken({
       idToken: tokens.id_token,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -115,6 +126,7 @@ exports.googleCallback = async (req, res) => {
 
     const { email, name, sub } = ticket.getPayload();
 
+    // Find or create user in MongoDB
     let user = await User.findOne({ email });
     if (!user) {
       user = await User.create({
@@ -132,6 +144,7 @@ exports.googleCallback = async (req, res) => {
 
     const token = generateToken(user);
 
+    // Redirect to Next.js frontend callback page
     const params = new URLSearchParams({
       success: "true",
       token,
@@ -139,14 +152,19 @@ exports.googleCallback = async (req, res) => {
       email: user.email,
     });
 
-    res.redirect(`${FRONTEND_URL}/google/callback?${params.toString()}`);
+    res.redirect(
+      `${FRONTEND_URL}/google/callback?${params.toString()}`
+    );
   } catch (err) {
     console.error("Google callback error:", err.message);
     res.redirect(
-      `${FRONTEND_URL}/google/callback?error=${encodeURIComponent(err.message)}`
+      `${FRONTEND_URL}/google/callback?error=${encodeURIComponent(
+        err.message
+      )}`
     );
   }
 };
+
 
 exports.allusers = async (req, res) => {
   try {
