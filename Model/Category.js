@@ -16,6 +16,10 @@ const categorySchema = new Schema({
         unique: true,
         trim: true
     },
+    categoriesimg: {
+        type: String,   // URL or path to the category image
+        trim: true
+    },
     subCategories: [subCategorySchema]  // Array of subcategories
 }, { timestamps: true });
 

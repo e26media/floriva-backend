@@ -35,6 +35,16 @@ const productSchema = new  Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Color'
   },
+ country: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Country'
+  },
+ FeaturedProduct: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'FeaturedProduct',
+  }
+],
     stock: {
       type: Number,
       default: 0

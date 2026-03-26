@@ -11,7 +11,9 @@ const reviewRouter=require('./Router/reviewRouter');
 const userRoutes=require('./Router/userRoutes');
 const colorRoutes=require('./Router/colorRoutes');
 const cartRoutes = require('./Router/cartRoutes');
-
+const vendorRoutes  = require('./Router/vendorRoutes');
+const featuredRoutes = require("./Router/featuredRoutes");
+const CountryRouter = require("./Router/countryRouter");
 
 
 
@@ -48,8 +50,11 @@ app.use('/api',reviewRouter);
 app.use('/api',userRoutes);
 app.use('/api',colorRoutes);
 app.use('/api', cartRoutes);
+app.use('/api', vendorRoutes);
+app.use('/api', featuredRoutes);
+app.use('/api', CountryRouter);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use('/uploads', express.static('uploads'));
 
 
 mongoDB()

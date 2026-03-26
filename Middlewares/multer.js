@@ -1,58 +1,70 @@
-// Middlewares/multer.js
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Create uploads/products directory
-const uploadDir = 'uploads/products/';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-  console.log('✅ Created upload directory:', uploadDir);
-}
+// ─── Ensure upload directories exist ─────────────────────────────────────────
+const dirs = [
+  'uploads/products/',
+  'uploads/categories/',
+  'uploads/vendors/',
+];
 
-// Storage configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Clean filename: remove spaces and special characters
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const filename = file.originalname.replace(ext, '').replace(/\s+/g, '-').toLowerCase() + 
-                     '-' + uniqueSuffix + ext;
-    console.log('✓ File saved as:', filename);
-    cb(null, filename);
+dirs.forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log('✅ Created upload directory:', dir);
   }
 });
 
-// File filter
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif|webp/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
-  
-  if (extname && mimetype) {
-    return cb(null, true);
+// ─── Filename helper ──────────────────────────────────────────────────────────
+const buildFilename = (file) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  const base = path.basename(file.originalname, ext)
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+  const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+  return `${base}-${unique}${ext}`;
+};
+
+// ─── File filter (images only) ────────────────────────────────────────────────
+const imageFilter = (req, file, cb) => {
+  const allowedExts = /jpeg|jpg|png|gif|webp/;
+  const extOk  = allowedExts.test(path.extname(file.originalname).toLowerCase());
+  const mimeOk = allowedExts.test(file.mimetype);
+
+  if (extOk && mimeOk) {
+    cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed!'));
+    cb(new Error('Only image files are allowed (jpeg, jpg, png, gif, webp)'));
   }
 };
 
-// Create multer middleware
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
-  }
-});
+// ─── Storage factories ────────────────────────────────────────────────────────
+const makeStorage = (folder) =>
+  multer.diskStorage({
+    destination: (req, file, cb) => cb(null, folder),
+    filename:    (req, file, cb) => cb(null, buildFilename(file)),
+  });
 
-// Export single and array upload options
+// ─── Multer instances per domain ──────────────────────────────────────────────
+const productUploader  = multer({ storage: makeStorage('uploads/products/'),  fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+const categoryUploader = multer({ storage: makeStorage('uploads/categories/'), fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+const vendorUploader   = multer({ storage: makeStorage('uploads/vendors/'),    fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
 module.exports = {
-  singleUpload: upload.single('image'),
-  arrayUpload: upload.array('images', 10), // Max 10 images
-  fieldsUpload: upload.fields([
-    { name: 'images', maxCount: 10 }
-  ])
+  // Products  -- field: "image"  (single) | "images" (array / fields)
+  singleUpload: productUploader.single('image'),
+  arrayUpload:  productUploader.array('images', 10),
+  fieldsUpload: productUploader.fields([{ name: 'images', maxCount: 10 }]),
+
+  // Categories -- field: "categoriesimg"
+  categoryUpload: categoryUploader.single('categoriesimg'),
+
+  // Vendors -- fields: photo, shopPhoto, shopLicence
+  vendorUpload: vendorUploader.fields([
+    { name: 'photo',       maxCount: 1 },
+    { name: 'shopPhoto',   maxCount: 1 },
+    { name: 'shopLicence', maxCount: 1 },
+  ]),
 };
