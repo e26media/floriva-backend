@@ -3,7 +3,7 @@ const { createFeaturedProduct, getAllFeaturedProducts, getSingleFeaturedProduct,
 const router = express.Router();
 
 
-router.post('/insertFeaturedProductsss',createFeaturedProduct);
+router.post('/insertFeaturedProduct',createFeaturedProduct);
 router.get('/allFeaturedProducts',getAllFeaturedProducts);
 router.get('/allFeaturedProducts/:id',getSingleFeaturedProduct);
 router.put('/FeaturedProductUpdate/:id',updateFeaturedProduct);
