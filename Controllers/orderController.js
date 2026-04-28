@@ -152,7 +152,7 @@ const createOrder = async (req, res) => {
 
       const paymentIntent = await getStripe().paymentIntents.create({
         amount: amountInCents,
-        currency: 'usd',
+        currency: req.body.currency || 'usd',
         metadata: { userEmail },
         automatic_payment_methods: { enabled: true },
       });
