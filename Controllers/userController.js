@@ -5,8 +5,8 @@ const jwt = require("jsonwebtoken");
 const sendOTP = require("../Config/sendEmail");
 const { OAuth2Client } = require("google-auth-library");
 
-const REDIRECT_URI =  "https://api.florivagifts.com/api/google/callback"|| process.env.GOOGLE_CALLBACK_URL 
-const FRONTEND_URL = "https://florivagifts.com"|| process.env.FRONTEND_URL
+const REDIRECT_URI = process.env.GOOGLE_CALLBACK_URL || "https://api.florivagifts.com/api/google/callback"
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://florivagifts.com"
 
 // ✅ getClient() is called at REQUEST time, not at module load time
 // This ensures process.env variables are already loaded by dotenv

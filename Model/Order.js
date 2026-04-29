@@ -24,6 +24,10 @@ const orderSchema = new Schema(
       type: Number,
       required: true,
     },
+    currency: {
+      type: String,
+      default: 'usd',
+    },
 
     status: {
       type: String,

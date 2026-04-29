@@ -2,7 +2,7 @@
 
 const express =require('express');
 const { createCategory, updateCategory, getAllCategories, getCategoryById, deleteCategory } = require('../Controllers/categoryController');
-const { singleUpload, categoryUpload } = require('../Middlewares/multer');
+const { categoryUpload } = require('../Middlewares/multer');
 const router=express.Router();
 
 router.post('/categoryinsert',categoryUpload,createCategory);

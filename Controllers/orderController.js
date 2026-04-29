@@ -89,6 +89,7 @@ const createOrder = async (req, res) => {
       shippingAddress,
       userEmail,
       paymentMethod = 'cash_on_delivery',
+      currency = 'usd',
     } = req.body;
 
     // Basic validation
@@ -127,6 +128,7 @@ const createOrder = async (req, res) => {
         paymentMethod: 'cash_on_delivery',
         paymentStatus: 'unpaid',
         status: 'pending',
+        currency: currency.toLowerCase(),
       });
 
       await order.save();
@@ -152,7 +154,7 @@ const createOrder = async (req, res) => {
 
       const paymentIntent = await getStripe().paymentIntents.create({
         amount: amountInCents,
-        currency: req.body.currency || 'usd',
+        currency: currency.toLowerCase(),
         metadata: { userEmail },
         automatic_payment_methods: { enabled: true },
       });
@@ -167,6 +169,7 @@ const createOrder = async (req, res) => {
         status: 'pending',
         stripePaymentIntentId: paymentIntent.id,
         stripeClientSecret: paymentIntent.client_secret,
+        currency: currency.toLowerCase(),
       });
 
       await order.save();
