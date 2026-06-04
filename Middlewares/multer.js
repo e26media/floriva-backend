@@ -7,6 +7,7 @@ const dirs = [
   'uploads/products/',
   'uploads/categories/',
   'uploads/vendors/',
+  'uploads/site-content/',
 ];
 
 dirs.forEach((dir) => {
@@ -50,6 +51,7 @@ const makeStorage = (folder) =>
 const productUploader  = multer({ storage: makeStorage('uploads/products/'),  fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 const categoryUploader = multer({ storage: makeStorage('uploads/categories/'), fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 const vendorUploader   = multer({ storage: makeStorage('uploads/vendors/'),    fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+const siteContentUploader = multer({ storage: makeStorage('uploads/site-content/'), fileFilter: imageFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
 module.exports = {
@@ -67,4 +69,6 @@ module.exports = {
     { name: 'shopPhoto',   maxCount: 1 },
     { name: 'shopLicence', maxCount: 1 },
   ]),
+
+  siteContentUpload: siteContentUploader.single('image'),
 };

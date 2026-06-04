@@ -14,6 +14,10 @@ const cartRoutes = require('./Router/cartRoutes');
 const vendorRoutes  = require('./Router/vendorRoutes');
 const featuredRoutes = require("./Router/featuredRoutes");
 const CountryRouter = require("./Router/countryRouter");
+const adminRoutes = require("./Router/adminRoutes");
+const siteContentRoutes = require("./Router/siteContentRoutes");
+const { seedDefaultAdmin } = require("./Controllers/adminController");
+const { seedSiteContent } = require("./Controllers/siteContentController");
 
 
 
@@ -43,6 +47,12 @@ if (!fs.existsSync(productsDir)) {
   console.log('✓ Products directory created');
 }
 
+const siteContentDir = path.join(uploadsDir, 'site-content');
+if (!fs.existsSync(siteContentDir)) {
+  fs.mkdirSync(siteContentDir, { recursive: true });
+  console.log('✓ Site content directory created');
+}
+
 app.use('/api',productRoutes);
 app.use('/api',categoryRoutes);
 app.use('/api',orderRouter);
@@ -53,11 +63,23 @@ app.use('/api', cartRoutes);
 app.use('/api', vendorRoutes);
 app.use('/api', featuredRoutes);
 app.use('/api', CountryRouter);
+app.use('/api', adminRoutes);
+app.use('/api', siteContentRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/uploads', express.static('uploads'));
 
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error',
+  });
+});
 
-mongoDB()
-app.listen(port,()=>{
-    console.log(`Server running on port ${port}`); 
-})
+mongoDB().then(async () => {
+  await seedDefaultAdmin();
+  await seedSiteContent();
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+});
