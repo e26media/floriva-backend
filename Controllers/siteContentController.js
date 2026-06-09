@@ -8,6 +8,11 @@ const SITE_IMAGE_DEFINITIONS = [
 const buildImagePath = (file) =>
   file ? `/uploads/site-content/${file.filename}` : null;
 
+const parseBool = (value, defaultValue = true) => {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  return value !== 'false' && value !== false;
+};
+
 exports.seedSiteContent = async () => {
   for (const def of SITE_IMAGE_DEFINITIONS) {
     const exists = await SiteImage.findOne({ key: def.key });
@@ -74,7 +79,8 @@ exports.createHeroSlide = async (req, res) => {
       btnText: req.body.btnText || 'Explore shop now',
       imageUrl,
       sortOrder: req.body.sortOrder !== undefined ? Number(req.body.sortOrder) : count,
-      isActive: req.body.isActive !== 'false' && req.body.isActive !== false,
+      isActive: parseBool(req.body.isActive, true),
+      fullBanner: parseBool(req.body.fullBanner, true),
     });
 
     res.status(201).json({ success: true, data: slide });
@@ -95,7 +101,10 @@ exports.updateHeroSlide = async (req, res) => {
     if (req.body?.btnText !== undefined) slide.btnText = req.body.btnText;
     if (req.body?.sortOrder !== undefined) slide.sortOrder = Number(req.body.sortOrder);
     if (req.body?.isActive !== undefined) {
-      slide.isActive = req.body.isActive !== 'false' && req.body.isActive !== false;
+      slide.isActive = parseBool(req.body.isActive, slide.isActive);
+    }
+    if (req.body?.fullBanner !== undefined) {
+      slide.fullBanner = parseBool(req.body.fullBanner, slide.fullBanner);
     }
 
     const newImage = buildImagePath(req.file);

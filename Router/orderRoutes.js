@@ -1,5 +1,3 @@
-// ─── Routes/orderRouter.js ────────────────────────────────────────────────────
-
 const express = require('express');
 const router  = express.Router();
 
@@ -12,27 +10,15 @@ const {
   orderUpdate,
   orderDelete,
 } = require('../Controllers/orderController');
+const { authenticateAdmin } = require('../Middlewares/adminAuth');
 
-// ── Create order (COD or Online) ─────────────────────────────────────────────
 router.post('/createorder', createOrder);
-
-// ── Confirm Stripe payment after frontend stripe.confirmPayment() ─────────────
 router.post('/confirm-payment', confirmOnlinePayment);
-
-// ── View all orders (admin) ───────────────────────────────────────────────────
-router.get('/orderview', orderView);
-
-// ── View single order ─────────────────────────────────────────────────────────
-router.get('/orderview/:id', orderSingleView);
-
-// ── View all orders for a user by email ──────────────────────────────────────
+router.get('/orderview', authenticateAdmin, orderView);
+router.get('/orderview/:id', authenticateAdmin, orderSingleView);
 router.get('/user/:email', orderViewByUser);
-
-// ── Update order status / paymentStatus ──────────────────────────────────────
-router.put('/orderupdates/:id', orderUpdate);
-
-// ── Cancel / delete order ─────────────────────────────────────────────────────
-router.delete('/orderdelete/:id', orderDelete);
+router.put('/orderupdates/:id', authenticateAdmin, orderUpdate);
+router.delete('/orderdelete/:id', authenticateAdmin, orderDelete);
 
 module.exports = router;
 
