@@ -32,7 +32,18 @@ const vendorSchema = new mongoose.Schema(
   },
 
   shopLicence: {
-    type: String, // licence file or image
+    type: String,
+  },
+
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
+
+  adminNote: {
+    type: String,
+    default: '',
   },
 },
 {

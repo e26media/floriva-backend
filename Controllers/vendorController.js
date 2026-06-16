@@ -1,4 +1,5 @@
 const Vendor = require("../Model/Vendor");
+const { sendVendorStatusEmail } = require("../Config/sendEmail");
 
 // CREATE VENDOR
 exports.createVendor = async (req, res) => {
@@ -75,6 +76,46 @@ exports.getVendor = async (req, res) => {
   }
 };
 
+
+// UPDATE VENDOR STATUS (admin)
+exports.updateVendorStatus = async (req, res) => {
+  try {
+    const { status, adminNote } = req.body;
+    const allowed = ['pending', 'approved', 'rejected'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+    }
+
+    const vendor = await Vendor.findById(req.params.id);
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    vendor.status = status;
+    if (adminNote !== undefined) vendor.adminNote = adminNote;
+    await vendor.save();
+
+    if (vendor.email && (status === 'approved' || status === 'rejected')) {
+      try {
+        await sendVendorStatusEmail(
+          vendor.email,
+          status === 'approved' ? 'vendor_approved' : 'vendor_rejected',
+          {
+            businessName: vendor.name,
+            email: vendor.email,
+            adminNote: vendor.adminNote || '',
+          }
+        );
+      } catch (mailErr) {
+        console.error('Vendor status email failed:', mailErr.message);
+      }
+    }
+
+    res.json({ success: true, data: vendor, message: `Request marked as ${status}` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 // UPDATE VENDOR
 exports.updateVendor = async (req, res) => {
