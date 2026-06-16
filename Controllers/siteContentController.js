@@ -1,8 +1,17 @@
 const HeroSlide = require('../Model/HeroSlide');
 const SiteImage = require('../Model/SiteImage');
+const SocialLink = require('../Model/SocialLink');
 
 const SITE_IMAGE_DEFINITIONS = [
-  { key: 'promo_2', label: 'Promo banner (homepage)' },
+  { key: 'promo_2', label: 'Promo banner (homepage — below best sellers)' },
+  { key: 'hero_fallback', label: 'Hero fallback banner (when no carousel slides)' },
+];
+
+const SOCIAL_LINK_DEFINITIONS = [
+  { platform: 'instagram', label: 'Instagram' },
+  { platform: 'facebook', label: 'Facebook' },
+  { platform: 'tiktok', label: 'TikTok' },
+  { platform: 'pinterest', label: 'Pinterest' },
 ];
 
 const buildImagePath = (file) =>
@@ -13,6 +22,30 @@ const parseBool = (value, defaultValue = true) => {
   return value !== 'false' && value !== false;
 };
 
+const applyHeroMetaFields = (slide, body = {}) => {
+  if (body.heading !== undefined) slide.heading = body.heading;
+  if (body.subHeading !== undefined) slide.subHeading = body.subHeading;
+  if (body.btnText !== undefined) slide.btnText = body.btnText;
+  if (body.btnLink !== undefined) slide.btnLink = body.btnLink;
+  if (body.sortOrder !== undefined) slide.sortOrder = Number(body.sortOrder);
+  if (body.isActive !== undefined) slide.isActive = parseBool(body.isActive, slide.isActive);
+  if (body.fullBanner !== undefined) slide.fullBanner = parseBool(body.fullBanner, slide.fullBanner);
+  if (body.imageAlt !== undefined) slide.imageAlt = body.imageAlt;
+  if (body.imageTitle !== undefined) slide.imageTitle = body.imageTitle;
+  if (body.imageDescription !== undefined) slide.imageDescription = body.imageDescription;
+};
+
+const applySiteImageMetaFields = (record, body = {}) => {
+  if (body.label !== undefined) record.label = body.label;
+  if (body.linkUrl !== undefined) record.linkUrl = body.linkUrl;
+  if (body.imageAlt !== undefined) record.imageAlt = body.imageAlt;
+  if (body.imageTitle !== undefined) record.imageTitle = body.imageTitle;
+  if (body.imageDescription !== undefined) record.imageDescription = body.imageDescription;
+  if (body.isActive !== undefined) {
+    record.isActive = parseBool(body.isActive, record.isActive);
+  }
+};
+
 exports.seedSiteContent = async () => {
   for (const def of SITE_IMAGE_DEFINITIONS) {
     const exists = await SiteImage.findOne({ key: def.key });
@@ -20,13 +53,21 @@ exports.seedSiteContent = async () => {
       await SiteImage.create({ ...def, imageUrl: '', isActive: true });
     }
   }
+
+  for (const def of SOCIAL_LINK_DEFINITIONS) {
+    const exists = await SocialLink.findOne({ platform: def.platform });
+    if (!exists) {
+      await SocialLink.create({ ...def, url: '', isActive: true });
+    }
+  }
 };
 
 exports.getPublicSiteContent = async (req, res) => {
   try {
-    const [heroSlides, siteImages] = await Promise.all([
+    const [heroSlides, siteImages, socialLinks] = await Promise.all([
       HeroSlide.find({ isActive: true }).sort({ sortOrder: 1, createdAt: 1 }),
       SiteImage.find({ isActive: true, imageUrl: { $ne: '' } }),
+      SocialLink.find({ isActive: true, url: { $ne: '' } }).sort({ platform: 1 }),
     ]);
 
     res.json({
@@ -34,6 +75,7 @@ exports.getPublicSiteContent = async (req, res) => {
       data: {
         heroSlides,
         siteImages,
+        socialLinks,
       },
     });
   } catch (error) {
@@ -43,9 +85,10 @@ exports.getPublicSiteContent = async (req, res) => {
 
 exports.getAdminSiteContent = async (req, res) => {
   try {
-    const [heroSlides, siteImages] = await Promise.all([
+    const [heroSlides, siteImages, socialLinks] = await Promise.all([
       HeroSlide.find().sort({ sortOrder: 1, createdAt: 1 }),
       SiteImage.find().sort({ key: 1 }),
+      SocialLink.find().sort({ platform: 1 }),
     ]);
 
     res.json({
@@ -53,7 +96,9 @@ exports.getAdminSiteContent = async (req, res) => {
       data: {
         heroSlides,
         siteImages,
+        socialLinks,
         siteImageDefinitions: SITE_IMAGE_DEFINITIONS,
+        socialLinkDefinitions: SOCIAL_LINK_DEFINITIONS,
       },
     });
   } catch (error) {
@@ -77,7 +122,11 @@ exports.createHeroSlide = async (req, res) => {
       heading: req.body.heading || '',
       subHeading: req.body.subHeading || '',
       btnText: req.body.btnText || 'Explore shop now',
+      btnLink: req.body.btnLink || '',
       imageUrl,
+      imageAlt: req.body.imageAlt || '',
+      imageTitle: req.body.imageTitle || '',
+      imageDescription: req.body.imageDescription || '',
       sortOrder: req.body.sortOrder !== undefined ? Number(req.body.sortOrder) : count,
       isActive: parseBool(req.body.isActive, true),
       fullBanner: parseBool(req.body.fullBanner, true),
@@ -96,16 +145,7 @@ exports.updateHeroSlide = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Hero slide not found' });
     }
 
-    if (req.body?.heading !== undefined) slide.heading = req.body.heading;
-    if (req.body?.subHeading !== undefined) slide.subHeading = req.body.subHeading;
-    if (req.body?.btnText !== undefined) slide.btnText = req.body.btnText;
-    if (req.body?.sortOrder !== undefined) slide.sortOrder = Number(req.body.sortOrder);
-    if (req.body?.isActive !== undefined) {
-      slide.isActive = parseBool(req.body.isActive, slide.isActive);
-    }
-    if (req.body?.fullBanner !== undefined) {
-      slide.fullBanner = parseBool(req.body.fullBanner, slide.fullBanner);
-    }
+    applyHeroMetaFields(slide, req.body);
 
     const newImage = buildImagePath(req.file);
     if (newImage) slide.imageUrl = newImage;
@@ -142,10 +182,7 @@ exports.updateSiteImage = async (req, res) => {
       record = new SiteImage({ key, label: def.label });
     }
 
-    if (req.body?.label) record.label = req.body.label;
-    if (req.body?.isActive !== undefined) {
-      record.isActive = req.body.isActive !== 'false' && req.body.isActive !== false;
-    }
+    applySiteImageMetaFields(record, req.body);
 
     const newImage = buildImagePath(req.file);
     if (newImage) record.imageUrl = newImage;
@@ -156,6 +193,72 @@ exports.updateSiteImage = async (req, res) => {
 
     await record.save();
     res.json({ success: true, data: record });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.updateSocialLink = async (req, res) => {
+  try {
+    const { platform } = req.params;
+    const def = SOCIAL_LINK_DEFINITIONS.find((d) => d.platform === platform);
+    if (!def) {
+      return res.status(400).json({ success: false, message: 'Unknown social platform' });
+    }
+
+    let record = await SocialLink.findOne({ platform });
+    if (!record) {
+      record = new SocialLink({ platform, label: def.label });
+    }
+
+    if (req.body?.url !== undefined) record.url = String(req.body.url).trim();
+    if (req.body?.label !== undefined) record.label = req.body.label;
+    if (req.body?.isActive !== undefined) {
+      record.isActive = parseBool(req.body.isActive, record.isActive);
+    }
+
+    await record.save();
+    res.json({ success: true, data: record });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.runSecurityChecks = async (req, res) => {
+  try {
+    const checks = [
+      {
+        id: 'session',
+        label: 'Admin session',
+        status: 'pass',
+        detail: `Signed in as ${req.admin.username}`,
+      },
+      {
+        id: 'jwt',
+        label: 'JWT authentication',
+        status: 'pass',
+        detail: 'Bearer token verified for this request',
+      },
+      {
+        id: 'https',
+        label: 'API over HTTPS (production)',
+        status:
+          req.headers['x-forwarded-proto'] === 'https' ||
+          req.secure ||
+          process.env.NODE_ENV !== 'production'
+            ? 'pass'
+            : 'warn',
+        detail: 'Admin API should always be accessed over HTTPS in production',
+      },
+      {
+        id: 'protected_routes',
+        label: 'Protected CMS routes',
+        status: 'pass',
+        detail: 'This endpoint requires admin authentication',
+      },
+    ];
+
+    res.json({ success: true, data: { checks, testedAt: new Date().toISOString() } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

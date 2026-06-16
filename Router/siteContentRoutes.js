@@ -7,6 +7,8 @@ const {
   updateHeroSlide,
   deleteHeroSlide,
   updateSiteImage,
+  updateSocialLink,
+  runSecurityChecks,
 } = require('../Controllers/siteContentController');
 const { authenticateAdmin } = require('../Middlewares/adminAuth');
 const { siteContentUpload } = require('../Middlewares/multer');
@@ -37,5 +39,7 @@ router.post('/site-content/hero-slides', authenticateAdmin, handleUpload, create
 router.put('/site-content/hero-slides/:id', authenticateAdmin, handleUpload, updateHeroSlide);
 router.delete('/site-content/hero-slides/:id', authenticateAdmin, deleteHeroSlide);
 router.put('/site-content/site-images/:key', authenticateAdmin, handleUpload, updateSiteImage);
+router.put('/site-content/social-links/:platform', authenticateAdmin, updateSocialLink);
+router.get('/site-content/security-check', authenticateAdmin, runSecurityChecks);
 
 module.exports = router;
