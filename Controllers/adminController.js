@@ -8,15 +8,51 @@ const generateAdminToken = (admin) =>
     { expiresIn: "7d" }
   );
 
+const DEFAULT_ADMIN_USERNAME = "florivaadmin";
+const DEFAULT_ADMIN_PASSWORD = "giftsFLORIVA#321";
+const LEGACY_ADMIN_USERNAME = "admin";
+
 exports.seedDefaultAdmin = async () => {
+  const targetUsername = (
+    process.env.ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME
+  ).toLowerCase();
+  const targetPassword = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+
+  const legacyAdmin = await Admin.findOne({
+    username: LEGACY_ADMIN_USERNAME,
+  }).select("+password");
+
+  if (legacyAdmin) {
+    legacyAdmin.username = targetUsername;
+    legacyAdmin.password = targetPassword;
+    await legacyAdmin.save();
+    console.log(`Legacy admin migrated (username: ${targetUsername})`);
+    return;
+  }
+
   const count = await Admin.countDocuments();
-  if (count > 0) return;
+  if (count === 0) {
+    await Admin.create({
+      username: targetUsername,
+      password: targetPassword,
+      name: "Admin",
+    });
+    console.log(`Default admin created (username: ${targetUsername})`);
+    return;
+  }
 
-  const username = (process.env.ADMIN_USERNAME || "admin").toLowerCase();
-  const password = process.env.ADMIN_PASSWORD || "admin@123";
+  if (process.env.ADMIN_USERNAME || process.env.ADMIN_PASSWORD) {
+    const admin =
+      (await Admin.findOne({ username: targetUsername }).select("+password")) ||
+      (await Admin.findOne().select("+password"));
 
-  await Admin.create({ username, password, name: "Admin" });
-  console.log(`Default admin created (username: ${username})`);
+    if (admin) {
+      admin.username = targetUsername;
+      admin.password = targetPassword;
+      await admin.save();
+      console.log(`Admin credentials updated from env (username: ${targetUsername})`);
+    }
+  }
 };
 
 exports.login = async (req, res) => {
