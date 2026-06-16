@@ -23,9 +23,13 @@ const productSchema = new  Schema({
     },
     category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category', // Foreign Key
+      ref: 'Category', // Primary category (first in categories[])
       // required: true
     },
+    categories: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+    }],
      subCategory: {
             type: mongoose.Schema.Types.ObjectId,
             default: null
@@ -63,5 +67,14 @@ const productSchema = new  Schema({
   },
   { timestamps: true }
 );
+
+productSchema.pre('save', function (next) {
+  if (Array.isArray(this.categories) && this.categories.length > 0) {
+    this.category = this.categories[0];
+  } else if (this.category && (!this.categories || this.categories.length === 0)) {
+    this.categories = [this.category];
+  }
+  next();
+});
 
 module.exports = mongoose.model("Product", productSchema);

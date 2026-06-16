@@ -36,6 +36,45 @@ function parseFeaturedIds(body) {
   return { ids, wasProvided };
 }
 
+function parseCategoryIds(body) {
+  let ids = [];
+
+  if (body.categories) {
+    const raw = body.categories;
+    if (Array.isArray(raw)) {
+      ids = raw.filter(id => id && id.toString().trim() !== '');
+    } else if (typeof raw === 'string' && raw.trim() !== '') {
+      ids = [raw.trim()];
+    }
+  }
+
+  if (body.categoriesJSON !== undefined) {
+    try {
+      const parsed = JSON.parse(body.categoriesJSON);
+      if (Array.isArray(parsed)) {
+        if (ids.length === 0) {
+          ids = parsed.filter(id => id && id.toString().trim() !== '');
+        }
+        return { ids, wasProvided: true };
+      }
+    } catch (e) {
+      console.warn('categoriesJSON parse error:', e.message);
+    }
+  }
+
+  const wasProvided =
+    body.categories !== undefined ||
+    body.categoriesJSON !== undefined ||
+    body.category !== undefined;
+
+  if (ids.length === 0 && body.category !== undefined) {
+    const single = body.category?.toString().trim();
+    if (single) ids = [single];
+  }
+
+  return { ids, wasProvided };
+}
+
 // ─── Create Product ───────────────────────────────────────────────────────────
 const createProduct = async (req, res) => {
   try {
@@ -64,7 +103,6 @@ const createProduct = async (req, res) => {
     const description   = req.body.description   || '';
     const exactPrice    = req.body.exactPrice;
     const discountPrice = req.body.discountPrice  || null;
-    const category      = req.body.category       || null;
     const subCategory   = req.body.subCategory    || null;
     const color         = req.body.color          || null;
     const country        = req.body.country         || null;
@@ -92,6 +130,14 @@ const createProduct = async (req, res) => {
 
     // FeaturedProduct
     const { ids: featuredProductIds } = parseFeaturedIds(req.body);
+    const { ids: categoryIds } = parseCategoryIds(req.body);
+
+    if (categoryIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one category is required',
+      });
+    }
 
     const productData = {
       name:            name.trim(),
@@ -99,7 +145,8 @@ const createProduct = async (req, res) => {
       description:     description.trim(),
       exactPrice:      numericPrice,
       discountPrice:   numericDiscount,
-      category:        category ? category.toString().trim() : null,
+      category:        categoryIds[0],
+      categories:      categoryIds,
       stock:           numericStock,
       deliveryInfo:    deliveryInfo.trim(),
       images,
@@ -123,6 +170,7 @@ const createProduct = async (req, res) => {
 
     const populated = await Product.findById(product._id)
       .populate('category')
+      .populate('categories')
       .populate('subCategory')
       .populate('color')
       .populate('FeaturedProduct')
@@ -148,6 +196,7 @@ const productView = async (req, res) => {
   try {
     const data = await Product.find()
       .populate('category')
+      .populate('categories')
       .populate('subCategory')
       .populate('color')
       .populate('FeaturedProduct')
@@ -200,6 +249,7 @@ const particularView = async (req, res) => {
 
     const data = await Product.find(query)
       .populate('category')
+      .populate('categories')
       .populate('subCategory')
       .populate('color')
       .populate('FeaturedProduct')
@@ -247,6 +297,7 @@ const countryWiseProducts = async (req, res) => {
 
     const data = await Product.find(query)
       .populate('category')
+      .populate('categories')
       .populate('subCategory')
       .populate('color')
       .populate('FeaturedProduct')
@@ -274,6 +325,7 @@ const singleProductView = async (req, res) => {
 
     const product = await Product.findById(id)
       .populate('category')
+      .populate('categories')
       .populate('subCategory')
       .populate('color')
       .populate('FeaturedProduct')
@@ -310,10 +362,17 @@ const productUpdate = async (req, res) => {
     }
 
     // 1️⃣ Scalar fields
-    ['name', 'title', 'description', 'exactPrice', 'discountPrice', 'stock', 'deliveryInfo', 'category']
+    ['name', 'title', 'description', 'exactPrice', 'discountPrice', 'stock', 'deliveryInfo']
       .forEach(field => {
         if (req.body[field] !== undefined) product[field] = req.body[field];
       });
+
+    // Categories (multi-select; keeps legacy single category field working)
+    const { ids: categoryIds, wasProvided: categoriesProvided } = parseCategoryIds(req.body);
+    if (categoriesProvided) {
+      product.categories = categoryIds;
+      product.category = categoryIds.length > 0 ? categoryIds[0] : null;
+    }
 
     // 2️⃣ subCategory
     if (req.body.subCategory !== undefined) {
@@ -354,6 +413,7 @@ const productUpdate = async (req, res) => {
 
     const populated = await Product.findById(product._id)
       .populate('category')
+      .populate('categories')
       .populate('subCategory')
       .populate('color')
       .populate('FeaturedProduct')
