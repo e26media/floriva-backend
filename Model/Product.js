@@ -68,13 +68,12 @@ const productSchema = new  Schema({
   { timestamps: true }
 );
 
-productSchema.pre('save', function (next) {
+productSchema.pre('save', function () {
   if (Array.isArray(this.categories) && this.categories.length > 0) {
     this.category = this.categories[0];
   } else if (this.category && (!this.categories || this.categories.length === 0)) {
     this.categories = [this.category];
   }
-  next();
 });
 
 module.exports = mongoose.model("Product", productSchema);
