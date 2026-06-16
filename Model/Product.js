@@ -34,6 +34,9 @@ const productSchema = new  Schema({
             type: mongoose.Schema.Types.ObjectId,
             default: null
           },
+    subCategories: [{
+      type: mongoose.Schema.Types.ObjectId,
+    }],
             
  color: {
     type: mongoose.Schema.Types.ObjectId,
@@ -73,6 +76,15 @@ productSchema.pre('save', function () {
     this.category = this.categories[0];
   } else if (this.category && (!this.categories || this.categories.length === 0)) {
     this.categories = [this.category];
+  }
+
+  if (Array.isArray(this.subCategories) && this.subCategories.length > 0) {
+    this.subCategory = this.subCategories[0];
+  } else if (this.subCategory && (!this.subCategories || this.subCategories.length === 0)) {
+    this.subCategories = [this.subCategory];
+  } else if (!this.subCategory && (!this.subCategories || this.subCategories.length === 0)) {
+    this.subCategory = null;
+    this.subCategories = [];
   }
 });
 

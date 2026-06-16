@@ -75,6 +75,45 @@ function parseCategoryIds(body) {
   return { ids, wasProvided };
 }
 
+function parseSubCategoryIds(body) {
+  let ids = [];
+
+  if (body.subCategories) {
+    const raw = body.subCategories;
+    if (Array.isArray(raw)) {
+      ids = raw.filter(id => id && id.toString().trim() !== '');
+    } else if (typeof raw === 'string' && raw.trim() !== '') {
+      ids = [raw.trim()];
+    }
+  }
+
+  if (body.subCategoriesJSON !== undefined) {
+    try {
+      const parsed = JSON.parse(body.subCategoriesJSON);
+      if (Array.isArray(parsed)) {
+        if (ids.length === 0) {
+          ids = parsed.filter(id => id && id.toString().trim() !== '');
+        }
+        return { ids, wasProvided: true };
+      }
+    } catch (e) {
+      console.warn('subCategoriesJSON parse error:', e.message);
+    }
+  }
+
+  const wasProvided =
+    body.subCategories !== undefined ||
+    body.subCategoriesJSON !== undefined ||
+    body.subCategory !== undefined;
+
+  if (ids.length === 0 && body.subCategory !== undefined) {
+    const single = body.subCategory?.toString().trim();
+    if (single) ids = [single];
+  }
+
+  return { ids, wasProvided };
+}
+
 // ─── Create Product ───────────────────────────────────────────────────────────
 const createProduct = async (req, res) => {
   try {
@@ -131,6 +170,7 @@ const createProduct = async (req, res) => {
     // FeaturedProduct
     const { ids: featuredProductIds } = parseFeaturedIds(req.body);
     const { ids: categoryIds } = parseCategoryIds(req.body);
+    const { ids: subCategoryIds } = parseSubCategoryIds(req.body);
 
     if (categoryIds.length === 0) {
       return res.status(400).json({
@@ -151,12 +191,14 @@ const createProduct = async (req, res) => {
       deliveryInfo:    deliveryInfo.trim(),
       images,
       FeaturedProduct: featuredProductIds,
-      // county:          county ? county.toString().trim() : null,
-      // color:           color ? color.toString().trim() : null,
     };
 
-    if (subCategory && subCategory.toString().trim() !== '') {
+    if (subCategoryIds.length > 0) {
+      productData.subCategories = subCategoryIds;
+      productData.subCategory = subCategoryIds[0];
+    } else if (subCategory && subCategory.toString().trim() !== '') {
       productData.subCategory = subCategory.toString().trim();
+      productData.subCategories = [subCategory.toString().trim()];
     }
     if (color && color.toString().trim() !== '') {
       productData.color = color.toString().trim();
@@ -374,10 +416,11 @@ const productUpdate = async (req, res) => {
       product.category = categoryIds.length > 0 ? categoryIds[0] : null;
     }
 
-    // 2️⃣ subCategory
-    if (req.body.subCategory !== undefined) {
-      const sub = req.body.subCategory.toString().trim();
-      product.subCategory = sub !== '' ? sub : null;
+    // 2️⃣ subCategories (multi-select; keeps legacy single subCategory working)
+    const { ids: subCategoryIds, wasProvided: subCategoriesProvided } = parseSubCategoryIds(req.body);
+    if (subCategoriesProvided) {
+      product.subCategories = subCategoryIds;
+      product.subCategory = subCategoryIds.length > 0 ? subCategoryIds[0] : null;
     }
 
     // 3️⃣ color
