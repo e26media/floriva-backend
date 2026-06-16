@@ -107,6 +107,7 @@ exports.getIntegrations = async (req, res) => {
     if (!doc) doc = await IntegrationSetting.create({ singleton: 'main' });
 
     const data = doc.toObject();
+    if (data.email?.password) data.email.password = '••••••••';
     if (data.sms?.authToken && data.sms.authToken) data.sms.authToken = '••••••••';
     if (data.delivery?.apiSecret && data.delivery.apiSecret) data.delivery.apiSecret = '••••••••';
 
@@ -167,8 +168,82 @@ exports.updateIntegrations = async (req, res) => {
 
 exports.getEmailTemplates = async (req, res) => {
   try {
-    const templates = await EmailTemplate.find().sort({ key: 1 });
+    let templates = await EmailTemplate.find().sort({ key: 1 });
+    if (templates.length === 0) {
+      for (const tpl of DEFAULT_TEMPLATES) {
+        const exists = await EmailTemplate.findOne({ key: tpl.key });
+        if (!exists) await EmailTemplate.create(tpl);
+      }
+      templates = await EmailTemplate.find().sort({ key: 1 });
+    }
     res.json({ success: true, data: templates });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.seedEmailTemplates = async (req, res) => {
+  try {
+    let created = 0;
+    let updated = 0;
+    for (const tpl of DEFAULT_TEMPLATES) {
+      const existing = await EmailTemplate.findOne({ key: tpl.key });
+      if (!existing) {
+        await EmailTemplate.create(tpl);
+        created += 1;
+      } else if (req.body?.reset === true) {
+        existing.subject = tpl.subject;
+        existing.htmlBody = tpl.htmlBody;
+        existing.name = tpl.name;
+        existing.description = tpl.description;
+        existing.placeholders = tpl.placeholders;
+        await existing.save();
+        updated += 1;
+      }
+    }
+    const templates = await EmailTemplate.find().sort({ key: 1 });
+    res.json({
+      success: true,
+      data: templates,
+      message: `Templates ready (${created} created, ${updated} reset)`,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.createEmailTemplate = async (req, res) => {
+  try {
+    const { key, name, subject, htmlBody, description, isActive } = req.body;
+    const normalizedKey = String(key || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_]/g, '');
+
+    if (!normalizedKey || !name?.trim() || !subject?.trim() || !htmlBody?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Key, name, subject, and HTML body are required',
+      });
+    }
+
+    const exists = await EmailTemplate.findOne({ key: normalizedKey });
+    if (exists) {
+      return res.status(409).json({ success: false, message: 'Template key already exists' });
+    }
+
+    const template = await EmailTemplate.create({
+      key: normalizedKey,
+      name: name.trim(),
+      subject: subject.trim(),
+      htmlBody,
+      description: description || '',
+      placeholders: [],
+      isActive: isActive !== false,
+    });
+
+    res.status(201).json({ success: true, data: template, message: 'Template created' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

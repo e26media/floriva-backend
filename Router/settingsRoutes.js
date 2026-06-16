@@ -5,6 +5,8 @@ const {
   getIntegrations,
   updateIntegrations,
   getEmailTemplates,
+  seedEmailTemplates,
+  createEmailTemplate,
   updateEmailTemplate,
   previewEmailTemplate,
 } = require('../Controllers/settingsController');
@@ -12,7 +14,9 @@ const {
 router.get('/admin/integrations', authenticateAdmin, getIntegrations);
 router.put('/admin/integrations', authenticateAdmin, updateIntegrations);
 router.get('/admin/email-templates', authenticateAdmin, getEmailTemplates);
-router.put('/admin/email-templates/:key', authenticateAdmin, updateEmailTemplate);
+router.post('/admin/email-templates/seed', authenticateAdmin, seedEmailTemplates);
+router.post('/admin/email-templates', authenticateAdmin, createEmailTemplate);
 router.get('/admin/email-templates/:key/preview', authenticateAdmin, previewEmailTemplate);
+router.put('/admin/email-templates/:key', authenticateAdmin, updateEmailTemplate);
 
 module.exports = router;
