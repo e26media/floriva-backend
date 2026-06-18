@@ -1,43 +1,68 @@
+const Product = require('../Model/Product');
 const Cart = require('../Model/Cart');
+const { normalizeStoreCountrySlug } = require('../Utils/geoCountry');
 
+async function getProductCountrySlug(productId) {
+  const product = await Product.findById(productId).populate('country', 'name').lean();
+  if (!product?.country) return null;
+  const name = typeof product.country === 'object' ? product.country.name : product.country;
+  return normalizeStoreCountrySlug(name);
+}
 
 // ADD TO CART
 const addToCart = async (req, res) => {
   try {
-    const { userEmail, productId, quantity = 1 } = req.body;
+    const { productId, quantity = 1 } = req.body;
+    const userEmail = String(req.user?.email || req.body.userEmail || '').trim().toLowerCase();
 
     if (!userEmail || !productId) {
       return res.status(400).json({
         success: false,
-        message: "userEmail and productId required"
+        message: 'productId and authenticated user are required',
       });
     }
 
-    // Only look for existing PENDING item (don't merge with already-ordered items)
-    const existing = await Cart.findOne({ userEmail, productId, status: "pending" });
+    if (req.user?.email && req.body.userEmail && req.body.userEmail.toLowerCase() !== req.user.email.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only add items to your own cart',
+      });
+    }
+
+    const userCountry = normalizeStoreCountrySlug(req.user?.countrySlug);
+    const productCountry = await getProductCountrySlug(productId);
+
+    if (userCountry && productCountry && userCountry !== productCountry) {
+      return res.status(403).json({
+        success: false,
+        message: `This product is only available in ${productCountry}. Your store region is ${userCountry}.`,
+        userCountry,
+        productCountry,
+      });
+    }
+
+    const existing = await Cart.findOne({ userEmail, productId, status: 'pending' });
 
     if (existing) {
       existing.quantity += quantity;
       await existing.save();
-      return res.json({ success: true, message: "Cart updated", data: existing });
+      return res.json({ success: true, message: 'Cart updated', data: existing });
     }
 
     const cartItem = new Cart({
       userEmail,
       productId,
       quantity,
-      status: "pending"
+      status: 'pending',
     });
 
     await cartItem.save();
 
-    res.json({ success: true, message: "Added to cart", data: cartItem });
-
+    res.json({ success: true, message: 'Added to cart', data: cartItem });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 // VIEW CART — only returns "pending" items (ordered items will NOT appear)
 const viewCart = async (req, res) => {
@@ -46,7 +71,7 @@ const viewCart = async (req, res) => {
 
     const items = await Cart.find({
       userEmail,
-      status: "pending"          // ← KEY: only pending items shown in cart
+      status: "pending"
     }).populate("productId");
 
     res.json({ success: true, data: items });
@@ -55,7 +80,6 @@ const viewCart = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 // UPDATE CART QUANTITY
 const updateCart = async (req, res) => {
@@ -77,6 +101,10 @@ const updateCart = async (req, res) => {
       return res.status(404).json({ success: false, message: "Cart item not found" });
     }
 
+    if (updated.userEmail !== req.user?.email) {
+      return res.status(403).json({ success: false, message: "You can only update your own cart" });
+    }
+
     res.json({ success: true, message: "Cart updated", data: updated });
 
   } catch (error) {
@@ -84,17 +112,21 @@ const updateCart = async (req, res) => {
   }
 };
 
-
 // DELETE CART ITEM
 const deleteCart = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const deleted = await Cart.findByIdAndDelete(id);
-
-    if (!deleted) {
+    const existing = await Cart.findById(id);
+    if (!existing) {
       return res.status(404).json({ success: false, message: "Cart item not found" });
     }
+
+    if (existing.userEmail !== req.user?.email) {
+      return res.status(403).json({ success: false, message: "You can only delete your own cart items" });
+    }
+
+    await Cart.findByIdAndDelete(id);
 
     res.json({ success: true, message: "Cart item deleted" });
 
@@ -103,14 +135,10 @@ const deleteCart = async (req, res) => {
   }
 };
 
-
 // CONFIRM ORDER
-// Called after order is successfully placed.
-// Changes all "pending" cart items for this user → "success"
-// This causes the cart page to show empty (it only queries "pending").
 const confirmOrder = async (req, res) => {
   try {
-    const { userEmail } = req.body;
+    const userEmail = String(req.user?.email || req.body.userEmail || "").trim().toLowerCase();
 
     if (!userEmail) {
       return res.status(400).json({ success: false, message: "userEmail is required" });
@@ -131,7 +159,6 @@ const confirmOrder = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 module.exports = {
   addToCart,

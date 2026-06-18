@@ -21,6 +21,7 @@ const CountryRouter = require("./Router/countryRouter");
 const adminRoutes = require("./Router/adminRoutes");
 const siteContentRoutes = require("./Router/siteContentRoutes");
 const settingsRoutes = require("./Router/settingsRoutes");
+const geoRoutes = require("./Router/geoRoutes");
 const { seedDefaultAdmin } = require("./Controllers/adminController");
 const { seedSiteContent } = require("./Controllers/siteContentController");
 const { seedAdminSettings } = require("./Controllers/settingsController");
@@ -73,6 +74,7 @@ app.use('/api', CountryRouter);
 app.use('/api', adminRoutes);
 app.use('/api', siteContentRoutes);
 app.use('/api', settingsRoutes);
+app.use('/api', geoRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/uploads', express.static('uploads'));
 

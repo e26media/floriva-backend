@@ -9,6 +9,7 @@ const REDIRECT_URI = process.env.GOOGLE_CALLBACK_URL || "https://api.florivagift
 const FRONTEND_URL = (process.env.FRONTEND_URL || "https://florivagifts.com").replace(/\/$/, "")
 const sendOTP = emailService.sendOTP || emailService.default || emailService;
 const sendWelcomeEmail = emailService.sendWelcomeEmail || (async () => {});
+const { detectStoreCountryFromRequest, normalizeStoreCountrySlug } = require("../Utils/geoCountry");
 
 // ✅ getClient() is called at REQUEST time, not at module load time
 // This ensures process.env variables are already loaded by dotenv
@@ -19,11 +20,20 @@ const getClient = () => new OAuth2Client(
 
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email },
+    { id: user._id, email: user.email, countrySlug: user.countrySlug || null },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
 };
+
+async function assignUserCountry(user, req) {
+  const fromBody = normalizeStoreCountrySlug(req.body?.countrySlug);
+  if (!user.countrySlug) {
+    user.countrySlug = fromBody || detectStoreCountryFromRequest(req).countrySlug;
+  }
+  await user.save();
+  return user.countrySlug;
+}
 
 // =============================
 // SEND OTP
@@ -87,7 +97,7 @@ exports.verifyOtp = async (req, res) => {
       }
     }
 
-    await user.save();
+    await assignUserCountry(user, req);
 
     const token = generateToken(user);
     res.json({ success: true, token, user });
@@ -179,6 +189,8 @@ exports.googleCallback = async (req, res) => {
       }
     }
 
+    await assignUserCountry(user, req);
+
     const token = generateToken(user);
 
     // Redirect to Next.js frontend callback page
@@ -187,6 +199,7 @@ exports.googleCallback = async (req, res) => {
       token,
       name: user.username || name || "",
       email: user.email,
+      countrySlug: user.countrySlug || "",
     });
 
     res.redirect(

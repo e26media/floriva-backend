@@ -34,6 +34,13 @@ const userSchema = new mongoose.Schema(
     default: false,
   },
 
+  countrySlug: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    default: null,
+  },
+
 },
 { timestamps: true }
 );

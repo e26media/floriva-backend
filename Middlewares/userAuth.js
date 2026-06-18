@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
+const User = require("../Model/User");
 
-const authenticateUser = (req, res, next) => {
+const authenticateUser = async (req, res, next) => {
   try {
     const token = req.header("Authorization")?.replace("Bearer ", "");
 
@@ -20,7 +21,20 @@ const authenticateUser = (req, res, next) => {
       });
     }
 
-    req.user = decoded;
+    const user = await User.findById(decoded.id).select("email countrySlug username");
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    req.user = {
+      id: user._id,
+      email: user.email,
+      countrySlug: user.countrySlug || decoded.countrySlug || null,
+      username: user.username,
+    };
     next();
   } catch {
     return res.status(401).json({

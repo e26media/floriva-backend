@@ -10,7 +10,7 @@ const {
 } = require('../Controllers/cartController');
 const { authenticateUser, requireMatchingEmail } = require('../Middlewares/userAuth');
 
-router.post('/addtocart', addToCart);
+router.post('/addtocart', authenticateUser, addToCart);
 router.get('/view/:userEmail', authenticateUser, requireMatchingEmail, viewCart);
 router.put('/cartupdate/:id', authenticateUser, updateCart);
 router.delete('/cartdelete/:id', authenticateUser, deleteCart);
