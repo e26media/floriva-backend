@@ -9,4 +9,4 @@ const countrySchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Country', countrySchema);
+module.exports = mongoose.models.Country || mongoose.model('Country', countrySchema);

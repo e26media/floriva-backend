@@ -1,4 +1,4 @@
-const Country = require("../Model/Country");
+const Country = require("../Model/country");
 const { detectStoreCountryFromRequest } = require("../Utils/geoCountry");
 
 const detectCountry = async (req, res) => {
