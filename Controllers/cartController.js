@@ -78,7 +78,14 @@ const viewCart = async (req, res) => {
     const items = await Cart.find({
       userEmail,
       status: "pending"
-    }).populate("productId");
+    }).populate({
+      path: 'productId',
+      populate: [
+        { path: 'color', select: 'name' },
+        { path: 'category', select: 'name' },
+        { path: 'country', select: 'name' },
+      ],
+    });
 
     res.json({ success: true, data: items });
 
