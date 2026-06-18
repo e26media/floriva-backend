@@ -28,9 +28,8 @@ const generateToken = (user) => {
 
 async function assignUserCountry(user, req) {
   const fromBody = normalizeStoreCountrySlug(req.body?.countrySlug);
-  if (!user.countrySlug) {
-    user.countrySlug = fromBody || detectStoreCountryFromRequest(req).countrySlug;
-  }
+  const detected = detectStoreCountryFromRequest(req).countrySlug;
+  user.countrySlug = fromBody || detected || user.countrySlug || "india";
   await user.save();
   return user.countrySlug;
 }
@@ -220,6 +219,35 @@ exports.allusers = async (req, res) => {
   try {
     const users = await User.find();
     res.json({ success: true, data: users });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.syncUserCountry = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    await assignUserCountry(user, req);
+
+    const Country = require("../Model/country");
+    const storeCountry = await Country.findOne({
+      name: new RegExp(`^${user.countrySlug}$`, "i"),
+    }).lean();
+
+    res.json({
+      success: true,
+      countrySlug: user.countrySlug,
+      country: storeCountry || null,
+      user: {
+        email: user.email,
+        username: user.username,
+        countrySlug: user.countrySlug,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

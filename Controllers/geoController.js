@@ -4,14 +4,15 @@ const { detectStoreCountryFromRequest } = require("../Utils/geoCountry");
 const detectCountry = async (req, res) => {
   try {
     const detected = detectStoreCountryFromRequest(req);
+    const slug = detected.countrySlug || "india";
     const storeCountry = await Country.findOne({
-      name: new RegExp(`^${detected.countrySlug}$`, "i"),
+      name: new RegExp(`^${slug}$`, "i"),
     }).lean();
 
     res.json({
       success: true,
-      countrySlug: detected.countrySlug,
-      countryName: storeCountry?.name || detected.countrySlug,
+      countrySlug: slug,
+      countryName: storeCountry?.name || slug,
       country: storeCountry || null,
       isoCode: detected.isoCode,
       source: detected.source,

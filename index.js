@@ -4,7 +4,6 @@ const dotenv = require('dotenv');
 const {
   corsMiddleware,
   helmetMiddleware,
-  apiLimiter,
 } = require('./Middlewares/security');
 
 const mongoDB=require('./Config/db');
@@ -37,7 +36,6 @@ dotenv.config()
 app.set('trust proxy', 1);
 app.use(helmetMiddleware);
 app.use(corsMiddleware);
-app.use(apiLimiter);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
