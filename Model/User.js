@@ -9,8 +9,19 @@ const userSchema = new mongoose.Schema(
 
   email: {
     type: String,
-    required: true,
+    trim: true,
+    lowercase: true,
     unique: true,
+    sparse: true,
+    default: null,
+  },
+
+  phone: {
+    type: String,
+    trim: true,
+    unique: true,
+    sparse: true,
+    default: null,
   },
 
   googleId: {
@@ -19,6 +30,11 @@ const userSchema = new mongoose.Schema(
 
   otp: String,
   otpExpire: Date,
+  pendingOtpChannel: {
+    type: String,
+    enum: ["email", "sms"],
+    default: "email",
+  },
   pendingAuthPurpose: {
     type: String,
     enum: ["login", "signup"],

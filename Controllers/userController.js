@@ -9,6 +9,9 @@ const REDIRECT_URI = process.env.GOOGLE_CALLBACK_URL || "https://api.florivagift
 const FRONTEND_URL = (process.env.FRONTEND_URL || "https://florivagifts.com").replace(/\/$/, "")
 const sendOTP = emailService.sendOTP || emailService.default || emailService;
 const sendWelcomeEmail = emailService.sendWelcomeEmail || (async () => {});
+const { sendSmsOtp } = require("../Config/sendSms");
+const { normalizePhone, isValidPhone } = require("../Utils/phone");
+const { parseContactInput } = require("../Utils/contact");
 const { detectStoreCountryFromRequest, normalizeStoreCountrySlug } = require("../Utils/geoCountry");
 
 // ✅ getClient() is called at REQUEST time, not at module load time
@@ -20,11 +23,20 @@ const getClient = () => new OAuth2Client(
 
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email, countrySlug: user.countrySlug || null },
+    {
+      id: user._id,
+      email: user.email || null,
+      phone: user.phone || null,
+      countrySlug: user.countrySlug || null,
+    },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
 };
+
+function getUserCartKey(user) {
+  return String(user.email || user.phone || user._id).trim().toLowerCase();
+}
 
 async function assignUserCountry(user, req) {
   const fromBody = normalizeStoreCountrySlug(req.body?.countrySlug);
@@ -34,32 +46,145 @@ async function assignUserCountry(user, req) {
   return user.countrySlug;
 }
 
+function formatUserResponse(user) {
+  return {
+    _id: user._id,
+    email: user.email,
+    username: user.username || "",
+    phone: user.phone || "",
+    countrySlug: user.countrySlug || null,
+  };
+}
+
+async function deliverOtp(user, otp, channel) {
+  const channels = [];
+
+  if (channel === "email" && user.email) {
+    await sendOTP(user.email, otp);
+    channels.push("email");
+  } else if (channel === "sms" && user.phone) {
+    const smsResult = await sendSmsOtp(user.phone, otp);
+    if (smsResult.sent) {
+      channels.push("sms");
+    } else if (process.env.NODE_ENV !== "production") {
+      console.log(`[SMS OTP dev] ${user.phone}: ${otp}`);
+      channels.push("sms");
+    }
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[OTP dev] ${channel} → ${user.email || user.phone}: ${otp}`);
+  }
+
+  return channels;
+}
+
+async function findUserByContact({ email, phone }) {
+  if (email) return User.findOne({ email });
+  if (phone) return User.findOne({ phone });
+  return null;
+}
+
 // =============================
 // SEND OTP
 // =============================
 exports.sendOtp = async (req, res) => {
   try {
-    const { email, name, username, purpose = "login" } = req.body;
-    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const { name, username, purpose = "login" } = req.body;
+    const authPurpose = purpose === "signup" ? "signup" : "login";
+    const displayName = String(name || username || "").trim();
+    const { normalizedEmail, normalizedPhone, channel } = parseContactInput(req.body);
 
-    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      return res.status(400).json({ success: false, message: "Valid email is required" });
+    if (!channel) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid email address or mobile number with country code (e.g. +91 9876543210)",
+      });
+    }
+
+    if (channel === "sms" && !isValidPhone(normalizedPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid mobile number with country code (e.g. +91 9876543210)",
+      });
+    }
+
+    if (authPurpose === "signup" && !displayName) {
+      return res.status(400).json({ success: false, message: "Full name is required to sign up" });
+    }
+
+    let user = await findUserByContact({
+      email: normalizedEmail,
+      phone: normalizedPhone,
+    });
+
+    if (authPurpose === "login") {
+      if (!user || !user.isVerified) {
+        return res.status(404).json({
+          success: false,
+          message: "No account found. Please sign up first.",
+        });
+      }
+    } else {
+      if (user?.isVerified) {
+        return res.status(400).json({
+          success: false,
+          message: "Account already exists. Please log in instead.",
+        });
+      }
+
+      if (normalizedEmail) {
+        const emailOwner = await User.findOne({ email: normalizedEmail });
+        if (emailOwner?.isVerified && emailOwner._id.toString() !== user?._id?.toString()) {
+          return res.status(400).json({
+            success: false,
+            message: "This email is already registered.",
+          });
+        }
+      }
+
+      if (normalizedPhone) {
+        const phoneOwner = await User.findOne({ phone: normalizedPhone });
+        if (phoneOwner?.isVerified && phoneOwner?._id?.toString() !== user?._id?.toString()) {
+          return res.status(400).json({
+            success: false,
+            message: "This mobile number is already registered.",
+          });
+        }
+      }
+
+      if (!user) {
+        user = new User({
+          email: normalizedEmail || undefined,
+          phone: normalizedPhone || undefined,
+        });
+      } else {
+        if (normalizedEmail) user.email = normalizedEmail;
+        if (normalizedPhone) user.phone = normalizedPhone;
+      }
+
+      user.username = displayName || user.username;
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    let user = await User.findOne({ email: normalizedEmail });
-    if (!user) user = new User({ email: normalizedEmail });
-
     user.otp = otp;
     user.otpExpire = Date.now() + 5 * 60 * 1000;
-    user.pendingAuthPurpose = purpose === "signup" ? "signup" : "login";
-    const displayName = String(name || username || "").trim();
+    user.pendingAuthPurpose = authPurpose;
+    user.pendingOtpChannel = channel;
     if (displayName) user.username = displayName;
-    await user.save();
-    await sendOTP(normalizedEmail, otp);
 
-    res.json({ success: true, message: "OTP sent to email" });
+    await user.save();
+    const channels = await deliverOtp(user, otp, channel);
+
+    res.json({
+      success: true,
+      message:
+        channel === "sms"
+          ? "OTP sent to your mobile number"
+          : "OTP sent to your email",
+      channel,
+      channels,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -70,15 +195,22 @@ exports.sendOtp = async (req, res) => {
 // =============================
 exports.verifyOtp = async (req, res) => {
   try {
-    const { email, otp, purpose } = req.body;
-    const normalizedEmail = String(email || "").trim().toLowerCase();
-    const user = await User.findOne({ email: normalizedEmail });
+    const { otp, purpose } = req.body;
+    const { normalizedEmail, normalizedPhone } = parseContactInput(req.body);
+    const user = await findUserByContact({
+      email: normalizedEmail,
+      phone: normalizedPhone,
+    });
 
-    if (!user) return res.status(400).json({ message: "User not found" });
-    if (String(user.otp) !== String(otp))
-      return res.status(400).json({ message: "Invalid OTP" });
-    if (user.otpExpire < Date.now())
-      return res.status(400).json({ message: "OTP expired" });
+    if (!user) {
+      return res.status(400).json({ success: false, message: "User not found" });
+    }
+    if (String(user.otp) !== String(otp)) {
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
+    }
+    if (user.otpExpire < Date.now()) {
+      return res.status(400).json({ success: false, message: "OTP expired" });
+    }
 
     user.isVerified = true;
     user.otp = null;
@@ -86,8 +218,9 @@ exports.verifyOtp = async (req, res) => {
 
     const isSignup = purpose === "signup" || user.pendingAuthPurpose === "signup";
     user.pendingAuthPurpose = "login";
+    user.pendingOtpChannel = undefined;
 
-    if (isSignup && !user.welcomeEmailSent) {
+    if (isSignup && user.email && !user.welcomeEmailSent) {
       try {
         await sendWelcomeEmail(user.email, user.username || "");
         user.welcomeEmailSent = true;
@@ -99,9 +232,9 @@ exports.verifyOtp = async (req, res) => {
     await assignUserCountry(user, req);
 
     const token = generateToken(user);
-    res.json({ success: true, token, user });
+    res.json({ success: true, token, user: formatUserResponse(user) });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

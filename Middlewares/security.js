@@ -35,7 +35,7 @@ const corsMiddleware = cors({
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Auth-Token", "x-access-token"],
 });
 
 const apiLimiter = rateLimit({

@@ -13,7 +13,9 @@ async function getProductCountrySlug(productId) {
 const addToCart = async (req, res) => {
   try {
     const { productId, quantity = 1 } = req.body;
-    const userEmail = String(req.user?.email || req.body.userEmail || '').trim().toLowerCase();
+    const userEmail = String(
+      req.user?.cartKey || req.user?.email || req.user?.phone || req.body.userEmail || "",
+    ).trim().toLowerCase();
 
     if (!userEmail || !productId) {
       return res.status(400).json({
@@ -22,7 +24,11 @@ const addToCart = async (req, res) => {
       });
     }
 
-    if (req.user?.email && req.body.userEmail && req.body.userEmail.toLowerCase() !== req.user.email.toLowerCase()) {
+    if (
+      req.user?.cartKey &&
+      req.body.userEmail &&
+      String(req.body.userEmail).trim().toLowerCase() !== req.user.cartKey
+    ) {
       return res.status(403).json({
         success: false,
         message: 'You can only add items to your own cart',
@@ -101,7 +107,7 @@ const updateCart = async (req, res) => {
       return res.status(404).json({ success: false, message: "Cart item not found" });
     }
 
-    if (updated.userEmail !== req.user?.email) {
+    if (updated.userEmail !== req.user?.cartKey) {
       return res.status(403).json({ success: false, message: "You can only update your own cart" });
     }
 
@@ -122,7 +128,7 @@ const deleteCart = async (req, res) => {
       return res.status(404).json({ success: false, message: "Cart item not found" });
     }
 
-    if (existing.userEmail !== req.user?.email) {
+    if (existing.userEmail !== req.user?.cartKey) {
       return res.status(403).json({ success: false, message: "You can only delete your own cart items" });
     }
 
@@ -138,7 +144,7 @@ const deleteCart = async (req, res) => {
 // CONFIRM ORDER
 const confirmOrder = async (req, res) => {
   try {
-    const userEmail = String(req.user?.email || req.body.userEmail || "").trim().toLowerCase();
+    const userEmail = String(req.user?.cartKey || req.user?.email || req.user?.phone || req.body.userEmail || "").trim().toLowerCase();
 
     if (!userEmail) {
       return res.status(400).json({ success: false, message: "userEmail is required" });
