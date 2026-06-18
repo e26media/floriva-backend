@@ -15,7 +15,7 @@ const Product = require('../Model/Product');
 const Order   = require('../Model/Order');
 const Stripe  = require('stripe');
 
-const { sendOrderEmail, sendCancelEmail } = require('../Config/sendEmail');
+const { sendOrderEmail, sendOrderStatusEmail, sendCancelEmail } = require('../Config/sendEmail');
 
 // Stripe is created lazily (on first online payment request).
 // This means COD works perfectly even if STRIPE_SECRET_KEY is not set.
@@ -73,6 +73,8 @@ async function restoreStock(products) {
 //   totalAmount     : number
 //   shippingAddress : { streetAddress1, streetAddress2, city, stateProvinceRegionId, postalCode, country }
 //   userEmail       : string
+//   customerName    : string
+//   customerPhone   : string
 //   paymentMethod   : "cash_on_delivery" | "online"
 //
 // Response (COD):
@@ -88,6 +90,8 @@ const createOrder = async (req, res) => {
       totalAmount,
       shippingAddress,
       userEmail,
+      customerName,
+      customerPhone,
       paymentMethod = 'cash_on_delivery',
       currency = 'usd',
     } = req.body;
@@ -98,6 +102,12 @@ const createOrder = async (req, res) => {
     }
     if (!userEmail) {
       return res.status(400).json({ success: false, message: 'userEmail is required' });
+    }
+    if (!customerName || !customerName.trim()) {
+      return res.status(400).json({ success: false, message: 'Customer name is required' });
+    }
+    if (!customerPhone || !customerPhone.trim()) {
+      return res.status(400).json({ success: false, message: 'Customer mobile number is required' });
     }
     if (
       !shippingAddress ||
@@ -125,6 +135,8 @@ const createOrder = async (req, res) => {
         totalAmount,
         shippingAddress,
         userEmail,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
         paymentMethod: 'cash_on_delivery',
         paymentStatus: 'unpaid',
         status: 'pending',
@@ -134,7 +146,7 @@ const createOrder = async (req, res) => {
       await order.save();
 
       try {
-        await sendOrderEmail(userEmail, order._id, totalAmount);
+        await sendOrderEmail(userEmail, order);
       } catch (emailErr) {
         console.error('[Order] Email failed (non-fatal):', emailErr.message);
       }
@@ -164,6 +176,8 @@ const createOrder = async (req, res) => {
         totalAmount,
         shippingAddress,
         userEmail,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
         paymentMethod: 'online',
         paymentStatus: 'unpaid',
         status: 'pending',
@@ -229,7 +243,7 @@ const confirmOnlinePayment = async (req, res) => {
     }
 
     try {
-      await sendOrderEmail(order.userEmail, order._id, order.totalAmount);
+      await sendOrderEmail(order.userEmail, order);
     } catch (emailErr) {
       console.error('[Order] Email failed (non-fatal):', emailErr.message);
     }
@@ -299,10 +313,27 @@ const orderUpdate = async (req, res) => {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    if (status)        order.status        = status;
-    if (paymentStatus) order.paymentStatus = paymentStatus;
+    const changes = {};
+
+    if (status && status !== order.status) {
+      changes.status = { from: order.status, to: status };
+      order.status = status;
+    }
+    if (paymentStatus && paymentStatus !== order.paymentStatus) {
+      changes.paymentStatus = { from: order.paymentStatus, to: paymentStatus };
+      order.paymentStatus = paymentStatus;
+    }
 
     await order.save();
+
+    if (Object.keys(changes).length > 0) {
+      try {
+        await sendOrderStatusEmail(order.userEmail, order, changes);
+      } catch (emailErr) {
+        console.error('[Order] Status email failed (non-fatal):', emailErr.message);
+      }
+    }
+
     res.status(200).json({ success: true, message: 'Order updated', order });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Order update failed', error: error.message });

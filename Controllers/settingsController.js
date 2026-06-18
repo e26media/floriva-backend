@@ -4,24 +4,44 @@ const EmailTemplate = require('../Model/EmailTemplate');
 const DEFAULT_TEMPLATES = [
   {
     key: 'login_otp',
-    name: 'Login OTP email',
-    subject: 'Your Floriva Gifts login code',
+    name: 'Customer login OTP',
+    subject: '{{otp}} is your Floriva Gifts verification code',
     description: 'Sent when a customer requests a login verification code.',
     placeholders: ['{{otp}}', '{{email}}', '{{expiryMinutes}}', '{{siteName}}'],
     htmlBody: `<!DOCTYPE html>
 <html>
-<body style="font-family:Segoe UI,sans-serif;background:#fdf2f8;padding:24px;margin:0">
-  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:32px;box-shadow:0 4px 24px rgba(0,0,0,0.06)">
-    <h1 style="color:#db2777;margin:0 0 8px;font-size:22px">{{siteName}}</h1>
-    <p style="color:#6b7280;margin:0 0 24px">Your one-time login code</p>
-    <div style="background:#fce7f3;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px">
-      <span style="font-size:36px;font-weight:800;letter-spacing:8px;color:#be185d">{{otp}}</span>
+<body style="margin:0;background:#f7f3ee;font-family:Arial,Helvetica,sans-serif;color:#2f241d">
+  <div style="max-width:560px;margin:0 auto;padding:28px 16px">
+    <div style="background:#ffffff;border-radius:18px;padding:30px;border:1px solid #eadfd4">
+      <p style="margin:0 0 8px;color:#b5623b;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">{{siteName}}</p>
+      <h1 style="margin:0 0 12px;font-size:24px;color:#1e1610">Your verification code</h1>
+      <p style="margin:0 0 24px;line-height:1.6;color:#6b5c51">Use this OTP to continue signing in to your Floriva Gifts account.</p>
+      <div style="background:#f7f3ee;border-radius:14px;padding:22px;text-align:center;margin-bottom:22px">
+        <span style="font-size:38px;font-weight:800;letter-spacing:8px;color:#b5623b">{{otp}}</span>
+      </div>
+      <p style="margin:0;color:#6b5c51;font-size:14px;line-height:1.6">This code expires in <strong>{{expiryMinutes}} minutes</strong>. If you did not request this, you can safely ignore this email.</p>
+      <p style="margin:24px 0 0;color:#9b8b7e;font-size:12px">Sent to {{email}}</p>
     </div>
-    <p style="color:#374151;font-size:14px;line-height:1.6;margin:0">
-      This code expires in <strong>{{expiryMinutes}} minutes</strong>.<br/>
-      If you did not request this, you can safely ignore this email.
-    </p>
-    <p style="color:#9ca3af;font-size:12px;margin-top:24px">Sent to {{email}}</p>
+  </div>
+</body>
+</html>`,
+  },
+  {
+    key: 'welcome_customer',
+    name: 'Customer welcome email',
+    subject: 'Welcome to {{siteName}}',
+    description: 'Sent after a customer verifies signup.',
+    placeholders: ['{{name}}', '{{email}}', '{{siteName}}'],
+    htmlBody: `<!DOCTYPE html>
+<html>
+<body style="margin:0;background:#f7f3ee;font-family:Arial,Helvetica,sans-serif;color:#2f241d">
+  <div style="max-width:560px;margin:0 auto;padding:28px 16px">
+    <div style="background:#ffffff;border-radius:18px;padding:30px;border:1px solid #eadfd4">
+      <p style="margin:0 0 8px;color:#b5623b;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">{{siteName}}</p>
+      <h1 style="margin:0 0 12px;font-size:24px;color:#1e1610">Welcome, {{name}}</h1>
+      <p style="margin:0 0 18px;line-height:1.6;color:#6b5c51">Your Floriva Gifts account is ready. You can now save your details, place orders, and track your gifts.</p>
+      <p style="margin:0;color:#9b8b7e;font-size:12px">Account email: {{email}}</p>
+    </div>
   </div>
 </body>
 </html>`,
@@ -29,15 +49,55 @@ const DEFAULT_TEMPLATES = [
   {
     key: 'order_confirmation',
     name: 'Order confirmation',
-    subject: 'Order confirmed — {{orderId}}',
+    subject: 'Your Floriva Gifts order is confirmed — {{orderId}}',
     description: 'Sent after a successful order placement.',
-    placeholders: ['{{orderId}}', '{{totalAmount}}', '{{email}}', '{{siteName}}'],
+    placeholders: ['{{orderId}}', '{{totalAmount}}', '{{email}}', '{{customerName}}', '{{customerPhone}}', '{{shippingAddress}}', '{{siteName}}'],
     htmlBody: `<!DOCTYPE html>
-<html><body style="font-family:Segoe UI,sans-serif;padding:24px">
-  <h2 style="color:#db2777">{{siteName}}</h2>
-  <p>Thank you for your order!</p>
-  <p><strong>Order ID:</strong> {{orderId}}<br/><strong>Total:</strong> {{totalAmount}}</p>
-</body></html>`,
+<html>
+<body style="margin:0;background:#f7f3ee;font-family:Arial,Helvetica,sans-serif;color:#2f241d">
+  <div style="max-width:620px;margin:0 auto;padding:28px 16px">
+    <div style="background:#ffffff;border-radius:18px;padding:30px;border:1px solid #eadfd4">
+      <p style="margin:0 0 8px;color:#b5623b;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">{{siteName}}</p>
+      <h1 style="margin:0 0 12px;font-size:24px;color:#1e1610">Thank you for your order</h1>
+      <p style="margin:0 0 22px;line-height:1.6;color:#6b5c51">We received your order and will start preparing it shortly.</p>
+      <div style="background:#f7f3ee;border-radius:14px;padding:18px;margin-bottom:18px">
+        <p style="margin:0 0 8px"><strong>Order ID:</strong> {{orderId}}</p>
+        <p style="margin:0"><strong>Total:</strong> {{totalAmount}}</p>
+      </div>
+      <p style="margin:0 0 8px"><strong>Name:</strong> {{customerName}}</p>
+      <p style="margin:0 0 8px"><strong>Mobile:</strong> {{customerPhone}}</p>
+      <p style="margin:0"><strong>Address:</strong> {{shippingAddress}}</p>
+    </div>
+  </div>
+</body>
+</html>`,
+  },
+  {
+    key: 'order_status_update',
+    name: 'Order status update',
+    subject: 'Your Floriva Gifts order update — {{orderId}}',
+    description: 'Sent when admin changes an order status or payment status.',
+    placeholders: ['{{orderId}}', '{{status}}', '{{paymentStatus}}', '{{totalAmount}}', '{{email}}', '{{customerName}}', '{{customerPhone}}', '{{shippingAddress}}', '{{siteName}}'],
+    htmlBody: `<!DOCTYPE html>
+<html>
+<body style="margin:0;background:#f7f3ee;font-family:Arial,Helvetica,sans-serif;color:#2f241d">
+  <div style="max-width:620px;margin:0 auto;padding:28px 16px">
+    <div style="background:#ffffff;border-radius:18px;padding:30px;border:1px solid #eadfd4">
+      <p style="margin:0 0 8px;color:#b5623b;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase">{{siteName}}</p>
+      <h1 style="margin:0 0 12px;font-size:24px;color:#1e1610">Your order has been updated</h1>
+      <p style="margin:0 0 22px;line-height:1.6;color:#6b5c51">Hi {{customerName}}, we have an update for your Floriva Gifts order.</p>
+      <div style="background:#f7f3ee;border-radius:14px;padding:18px;margin-bottom:18px">
+        <p style="margin:0 0 8px"><strong>Order ID:</strong> {{orderId}}</p>
+        <p style="margin:0 0 8px"><strong>Order status:</strong> {{status}}</p>
+        <p style="margin:0 0 8px"><strong>Payment status:</strong> {{paymentStatus}}</p>
+        <p style="margin:0"><strong>Total:</strong> {{totalAmount}}</p>
+      </div>
+      <p style="margin:0 0 8px"><strong>Mobile:</strong> {{customerPhone}}</p>
+      <p style="margin:0"><strong>Address:</strong> {{shippingAddress}}</p>
+    </div>
+  </div>
+</body>
+</html>`,
   },
   {
     key: 'order_cancelled',
@@ -87,7 +147,7 @@ exports.seedAdminSettings = async () => {
         enabled: Boolean(process.env.EMAIL),
         user: process.env.EMAIL || '',
         password: process.env.EMAIL_PASSWORD || '',
-        fromEmail: process.env.EMAIL || '',
+        fromEmail: process.env.EMAIL_FROM || process.env.MAIL_FROM || 'florivagifts@gmail.com',
         fromName: 'Floriva Gifts',
       },
     });
@@ -95,7 +155,16 @@ exports.seedAdminSettings = async () => {
 
   for (const tpl of DEFAULT_TEMPLATES) {
     const exists = await EmailTemplate.findOne({ key: tpl.key });
-    if (!exists) await EmailTemplate.create(tpl);
+      if (!exists) {
+        await EmailTemplate.create(tpl);
+      } else if (['login_otp', 'welcome_customer', 'order_confirmation', 'order_status_update'].includes(tpl.key)) {
+        exists.name = tpl.name;
+        exists.subject = tpl.subject;
+        exists.description = tpl.description;
+        exists.placeholders = tpl.placeholders;
+        exists.htmlBody = tpl.htmlBody;
+        await exists.save();
+      }
   }
 
   return integrations;

@@ -360,6 +360,49 @@ const countryWiseProducts = async (req, res) => {
   }
 };
 
+const productsByFeaturedLabel = async (req, res) => {
+  try {
+    const { featured = 'Best Seller', country } = req.query;
+
+    const featuredDoc = await FeaturedProduct.findOne({
+      name: new RegExp(`^${String(featured).trim()}$`, 'i'),
+    });
+
+    if (!featuredDoc) {
+      return res.json({ success: true, count: 0, data: [] });
+    }
+
+    const query = {
+      FeaturedProduct: { $in: [featuredDoc._id] },
+    };
+
+    if (country) {
+      const countryDoc = await Country.findOne({
+        name: new RegExp(`^${String(country).trim()}$`, 'i'),
+      });
+
+      if (!countryDoc) {
+        return res.json({ success: true, count: 0, data: [] });
+      }
+
+      query.country = countryDoc._id;
+    }
+
+    const data = await Product.find(query)
+      .populate('category')
+      .populate('categories')
+      .populate('subCategory')
+      .populate('color')
+      .populate('FeaturedProduct')
+      .populate('country');
+
+    return res.json({ success: true, count: data.length, data });
+  } catch (err) {
+    console.error('Featured product listing failed:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // ─── Single Product View  GET /api/allFeaturedProducts/:id ───────────────────
 const singleProductView = async (req, res) => {
   try {
@@ -484,4 +527,4 @@ const productDelete = async (req, res) => {
   }
 };
 
-module.exports = { createProduct, productView, singleProductView, productUpdate, productDelete,particularView,countryWiseProducts };
+module.exports = { createProduct, productView, singleProductView, productUpdate, productDelete,particularView,countryWiseProducts, productsByFeaturedLabel };

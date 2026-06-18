@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
-const { createProduct, productView, singleProductView, productUpdate, productDelete, particularView, countryWiseProducts } = require('../Controllers/productController');
+const { createProduct, productView, singleProductView, productUpdate, productDelete, particularView, countryWiseProducts, productsByFeaturedLabel } = require('../Controllers/productController');
 const { arrayUpload } = require('../Middlewares/multer');
 const { authenticateAdmin } = require('../Middlewares/adminAuth');
 
@@ -26,6 +26,7 @@ router.post('/insert', authenticateAdmin, handleUpload, createProduct);
 router.get('/productview',productView);
 router.get('/particularview',particularView)
 router.get('/countrywise',countryWiseProducts)
+router.get('/products-by-featured', productsByFeaturedLabel)
 router.get('/productview/:id',singleProductView)
 router.put('/productupdate/:id', authenticateAdmin, handleUpload, productUpdate);
 router.delete('/productdelete/:id', authenticateAdmin, productDelete);

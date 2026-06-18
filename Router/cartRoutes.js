@@ -8,26 +8,15 @@ const {
   deleteCart,
   confirmOrder
 } = require('../Controllers/cartController');
+const { authenticateUser, requireMatchingEmail } = require('../Middlewares/userAuth');
 
-// Add item to cart
 router.post('/addtocart', addToCart);
+router.get('/view/:userEmail', authenticateUser, requireMatchingEmail, viewCart);
+router.put('/cartupdate/:id', authenticateUser, updateCart);
+router.delete('/cartdelete/:id', authenticateUser, deleteCart);
+router.post('/confirm-order', authenticateUser, confirmOrder);
 
-// View all pending cart items for a user
-// GET /api/view/:userEmail
-router.get('/view/:userEmail', viewCart);
-
-// Update quantity of a cart item
-// PUT /api/cartupdate/:id  (body: { quantity })
-// NOTE: your cart.jsx uses /api/update/:id — pick ONE and use consistently
-router.put('/update/:id', updateCart);
-router.put('/cartupdate/:id', updateCart);   // alias kept for compatibility
-
-// Delete a single cart item
-// DELETE /api/cartdelete/:id
-router.delete('/cartdelete/:id', deleteCart);
-
-// Confirm order — sets all pending items → "success" (clears cart)
-// POST /api/confirm-order  (body: { userEmail })
-router.post('/confirm-order', confirmOrder);
+// Legacy aliases — avoid using /update/:id (conflicts with color routes)
+router.put('/update/:id', authenticateUser, updateCart);
 
 module.exports = router;

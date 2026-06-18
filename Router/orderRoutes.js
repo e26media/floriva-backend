@@ -11,12 +11,13 @@ const {
   orderDelete,
 } = require('../Controllers/orderController');
 const { authenticateAdmin } = require('../Middlewares/adminAuth');
+const { authenticateUser, requireMatchingEmail } = require('../Middlewares/userAuth');
 
 router.post('/createorder', createOrder);
 router.post('/confirm-payment', confirmOnlinePayment);
 router.get('/orderview', authenticateAdmin, orderView);
 router.get('/orderview/:id', authenticateAdmin, orderSingleView);
-router.get('/user/:email', orderViewByUser);
+router.get('/user/:email', authenticateUser, requireMatchingEmail, orderViewByUser);
 router.put('/orderupdates/:id', authenticateAdmin, orderUpdate);
 router.delete('/orderdelete/:id', authenticateAdmin, orderDelete);
 

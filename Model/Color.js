@@ -6,6 +6,11 @@ const colorSchema = new mongoose.Schema({
     required: true,
     trim: true,
     unique: true
+  },
+  hex: {
+    type: String,
+    default: '#cccccc',
+    trim: true
   }
 }, { timestamps: true });
 

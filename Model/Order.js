@@ -74,6 +74,16 @@ const orderSchema = new Schema(
       type: String,
       required: true,
     },
+    customerName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    customerPhone: {
+      type: String,
+      required: true,
+      trim: true,
+    },
   },
   { timestamps: true }
 );

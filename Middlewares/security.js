@@ -1,0 +1,75 @@
+const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+
+const DEFAULT_ORIGINS = [
+  "https://florivagifts.com",
+  "https://www.florivagifts.com",
+  "https://admin.florivagifts.com",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
+
+const buildAllowedOrigins = () => {
+  const fromEnv = [
+    process.env.FRONTEND_URL,
+    process.env.ADMIN_URL,
+    process.env.CORS_ORIGINS,
+  ]
+    .filter(Boolean)
+    .flatMap((value) => String(value).split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [...new Set([...DEFAULT_ORIGINS, ...fromEnv])];
+};
+
+const corsMiddleware = cors({
+  origin(origin, callback) {
+    const allowed = buildAllowedOrigins();
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests. Please try again later." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many authentication attempts. Please wait and try again." },
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many OTP requests. Please wait before trying again." },
+});
+
+const helmetMiddleware = helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+});
+
+module.exports = {
+  corsMiddleware,
+  helmetMiddleware,
+  apiLimiter,
+  authLimiter,
+  otpLimiter,
+};

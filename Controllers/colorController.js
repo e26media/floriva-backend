@@ -1,18 +1,33 @@
 const Color = require('../Model/Color');
 
 
+const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
+
+const normalizeHex = (hex) => {
+  const value = String(hex || '#cccccc').trim();
+  return HEX_COLOR_RE.test(value) ? value : '#cccccc';
+};
+
 const createColor = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, hex } = req.body;
 
-    if (!name) {
+    if (!name || !String(name).trim()) {
       return res.status(400).json({
         success: false,
         message: "Color name is required"
       });
     }
 
-    const existingColor = await Color.findOne({ name: name.trim() });
+    const trimmedName = String(name).trim();
+    if (trimmedName.length < 2 || trimmedName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Color name must be between 2 and 50 characters"
+      });
+    }
+
+    const existingColor = await Color.findOne({ name: trimmedName });
 
     if (existingColor) {
       return res.status(400).json({
@@ -22,7 +37,8 @@ const createColor = async (req, res) => {
     }
 
     const color = await Color.create({
-      name: name.trim()
+      name: trimmedName,
+      hex: normalizeHex(hex)
     });
 
     res.status(201).json({
@@ -90,18 +106,26 @@ const getSingleColor = async (req, res) => {
 const updateColor = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, hex } = req.body;
 
-    if (!name) {
+    if (!name || !String(name).trim()) {
       return res.status(400).json({
         success: false,
         message: "Color name is required"
       });
     }
 
+    const trimmedName = String(name).trim();
+    if (trimmedName.length < 2 || trimmedName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Color name must be between 2 and 50 characters"
+      });
+    }
+
     const updatedColor = await Color.findByIdAndUpdate(
       id,
-      { name: name.trim() },
+      { name: trimmedName, hex: normalizeHex(hex) },
       { new: true }
     );
 

@@ -19,6 +19,15 @@ const userSchema = new mongoose.Schema(
 
   otp: String,
   otpExpire: Date,
+  pendingAuthPurpose: {
+    type: String,
+    enum: ["login", "signup"],
+    default: "login",
+  },
+  welcomeEmailSent: {
+    type: Boolean,
+    default: false,
+  },
 
   isVerified: {
     type: Boolean,

@@ -2,11 +2,13 @@
 
 const User = require("../Model/User");
 const jwt = require("jsonwebtoken");
-const sendOTP = require("../Config/sendEmail");
+const emailService = require("../Config/sendEmail");
 const { OAuth2Client } = require("google-auth-library");
 
 const REDIRECT_URI = process.env.GOOGLE_CALLBACK_URL || "https://api.florivagifts.com/api/google/callback"
-const FRONTEND_URL = process.env.FRONTEND_URL || "https://florivagifts.com"
+const FRONTEND_URL = (process.env.FRONTEND_URL || "https://florivagifts.com").replace(/\/$/, "")
+const sendOTP = emailService.sendOTP || emailService.default || emailService;
+const sendWelcomeEmail = emailService.sendWelcomeEmail || (async () => {});
 
 // ✅ getClient() is called at REQUEST time, not at module load time
 // This ensures process.env variables are already loaded by dotenv
@@ -28,20 +30,29 @@ const generateToken = (user) => {
 // =============================
 exports.sendOtp = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, name, username, purpose = "login" } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: "Valid email is required" });
+    }
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    let user = await User.findOne({ email });
-    if (!user) user = new User({ email });
+    let user = await User.findOne({ email: normalizedEmail });
+    if (!user) user = new User({ email: normalizedEmail });
 
     user.otp = otp;
     user.otpExpire = Date.now() + 5 * 60 * 1000;
+    user.pendingAuthPurpose = purpose === "signup" ? "signup" : "login";
+    const displayName = String(name || username || "").trim();
+    if (displayName) user.username = displayName;
     await user.save();
-    await sendOTP(email, otp);
+    await sendOTP(normalizedEmail, otp);
 
     res.json({ success: true, message: "OTP sent to email" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -50,8 +61,9 @@ exports.sendOtp = async (req, res) => {
 // =============================
 exports.verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    const user = await User.findOne({ email });
+    const { email, otp, purpose } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) return res.status(400).json({ message: "User not found" });
     if (String(user.otp) !== String(otp))
@@ -62,6 +74,19 @@ exports.verifyOtp = async (req, res) => {
     user.isVerified = true;
     user.otp = null;
     user.otpExpire = null;
+
+    const isSignup = purpose === "signup" || user.pendingAuthPurpose === "signup";
+    user.pendingAuthPurpose = "login";
+
+    if (isSignup && !user.welcomeEmailSent) {
+      try {
+        await sendWelcomeEmail(user.email, user.username || "");
+        user.welcomeEmailSent = true;
+      } catch (emailErr) {
+        console.error("[User] Welcome email failed (non-fatal):", emailErr.message);
+      }
+    }
+
     await user.save();
 
     const token = generateToken(user);
@@ -128,6 +153,7 @@ exports.googleCallback = async (req, res) => {
 
     // Find or create user in MongoDB
     let user = await User.findOne({ email });
+    let createdUser = false;
     if (!user) {
       user = await User.create({
         username: name,
@@ -135,11 +161,22 @@ exports.googleCallback = async (req, res) => {
         googleId: sub,
         isVerified: true,
       });
+      createdUser = true;
     } else {
       if (!user.googleId) user.googleId = sub;
       if (!user.username) user.username = name;
       user.isVerified = true;
       await user.save();
+    }
+
+    if (createdUser && !user.welcomeEmailSent) {
+      try {
+        await sendWelcomeEmail(user.email, user.username || name || "");
+        user.welcomeEmailSent = true;
+        await user.save();
+      } catch (emailErr) {
+        console.error("[User] Welcome email failed (non-fatal):", emailErr.message);
+      }
     }
 
     const token = generateToken(user);
